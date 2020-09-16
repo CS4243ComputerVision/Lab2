@@ -15,7 +15,7 @@ from sklearn.utils._joblib import delayed
 # Part 1 
 
 def smoothing(img):
-    """Smooth image using Guassain filter.
+    """Smooth image using Guassian filter.
 
     Args:
         img (np.ndarray)            : Input image of size (H, W, 3).
@@ -26,7 +26,9 @@ def smoothing(img):
     """
 
     """ YOUR CODE STARTS HERE """
-
+    KERNEL_SIZE = 5
+    SIGMA = 5
+    img_smoothed = cv2.GaussianBlur(img, (KERNEL_SIZE, KERNEL_SIZE), SIGMA)
     """ YOUR CODE ENDS HERE """
 
     return img_smoothed
@@ -44,6 +46,7 @@ def RGBtoLab(img):
     """
 
     """ YOUR CODE STARTS HERE """
+    lab = color.rgb2lab(img)
 
     """ YOUR CODE ENDS HERE """
    

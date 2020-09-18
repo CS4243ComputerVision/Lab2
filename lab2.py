@@ -11,6 +11,8 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils._joblib import Parallel
 from sklearn.utils._joblib import delayed
 
+import matplotlib.pyplot as plt # Extra import added to plot graph for debug
+import copy
 
 # Part 1 
 
@@ -47,15 +49,96 @@ def RGBtoLab(img):
 
     """ YOUR CODE STARTS HERE """
     lab = color.rgb2lab(img)
-
     """ YOUR CODE ENDS HERE """
    
     return lab
 
 
 
-# Part 2
-def k_means_clustering(data,k):
+# Part 2    
+
+# To view how the cluster assignment changes, change DEBUG to True
+DEBUG = False 
+
+# Define colmap for plotting of graph for debugging purposes of 
+# visualising how the point clusters changes
+# Only works for K=3
+
+if DEBUG:
+    colmap = {1: 'r', 2: 'g', 3: 'y'}
+
+# HELPER FUNCTION 1
+# The notations Pi, Cj, Yi follow that of lab2.pdf
+# Pi: Individual point
+# Yi: Cluster id for Pi point
+# Cj: Individual centroid point
+# Inputs:
+# (a) data points
+# (b) centroids: dictionary where each Yi (key) is mapped to it's Cj (value)
+# Idea: 
+# (1) Iterate through every single point Pi in data
+# (1a) Compute the distance of Pi wrt all the centroid points Cj
+# (1b) In index 0 of new_assigned_cluster_data, we store the nearest Cj's cluster id (Yi) for Pi
+# Output:
+# (a) data points
+# (b) new_assigned_cluster_data: [0] = [Yi]
+def assign_clusters(data, centroids):
+    new_assigned_cluster_data = []
+    for Pi in data:
+        min_distance = float("inf")
+        Yi = -1
+        # Obtain Yi by comparing Pi with all possible Cj
+        for Ci, Cj in centroids.items():
+            # sqrt((x1 - x2)^2 - (y1 - y2)^2)
+            current_distance = np.sqrt(
+                np.square(Pi[0] - Cj[0]) 
+                + np.square(Pi[1] - Cj[1])
+            )
+            if current_distance <= min_distance:
+                min_distance = current_distance
+                Yi = Ci
+        # Append Yi: Cluster id
+        # Append Color: For debug purposes
+        if DEBUG:
+            new_assigned_cluster_data.append([Yi, colmap[Yi]])
+        else:
+            new_assigned_cluster_data.append([Yi])
+           
+    return (data, new_assigned_cluster_data)
+
+# HELPER FUNCTION 2
+# Idea: Compute the new centroid values based on means of points in that
+# cluster
+def update_centroids(centroids, data, new_assigned_cluster_data):
+    new_centroids = {}
+    for Yi in centroids.keys():
+        # compute the mean of all the points that has been assigned cluster id Yi
+        totalSumX = 0
+        totalSumY = 0
+        count = 0
+        for idx, cluster in enumerate(new_assigned_cluster_data):
+            if cluster[0] == Yi:
+                totalSumX += data[idx][0]
+                totalSumY += data[idx][1]
+                count += 1
+        # Obtain new centroid values for each cluster
+        new_centroids[Yi] = [totalSumX / count, totalSumY / count]
+    return new_centroids
+
+# HELPER FUNCTION 3
+# plot_graph: self defined function to print graph for debugging purposes
+def plot_graph(data, new_assigned_cluster_data, centroids, alpha = 1):
+    
+    fig = plt.figure()
+    
+    for i in range(len(data)):
+        plt.scatter(data[i][0], data[i][1], color = new_assigned_cluster_data[i][1], alpha = alpha, edgecolor = 'k')
+    for i in centroids.keys():
+        plt.scatter(*centroids[i], color = colmap[i], edgecolor = 'w', marker = 's')
+    
+    plt.show()
+    
+def k_means_clustering(data, k):
     """ Estimate clustering centers using k-means algorithm.
 
     Args:
@@ -73,17 +156,61 @@ def k_means_clustering(data,k):
 
 
     """ YOUR CODE STARTS HERE """
+    # (1) Randomly pick k points from data to be centroids
+    k_points = random.sample(list(data), k)
+    
+    # centroids[i] = [x, y], where i=0,1,..k are the cluster ids for centroids
+    centroids = {
+        i + 1: k_points[i]
+        for i in range(k)
+    }
+   
+    # (2) Plot graph to show position of initial centroids and data points
+    if DEBUG:
+        original_points_data = []
+        for i in range(len(data)):
+            # Set black color for original pts
+            # Note that 0 is just a dummy value
+            original_points_data.append([0, 'k']) 
+        plot_graph(data, original_points_data, centroids)
+    
+    # (3) Run function assign_clusters and update_centroids until the centroids remain 
+    # unchanged.
+    centroids_different = True
+    while centroids_different:
+        
+        # (3) Assign data to clusters based on centroids
+        data, new_assigned_cluster_data = assign_clusters(data, centroids)
 
+        # (3a) Plot graph to show position of centroids and data points to assigned new clusters
+        if DEBUG:
+            plot_graph(data, new_assigned_cluster_data, centroids, 0.5)
 
-
+        # (4) Update Centroids from the new clusters formed
+        old_centroids = copy.deepcopy(centroids)
+        centroids = update_centroids(centroids, data, new_assigned_cluster_data)
+        
+        centroids_different = False
+        for idx, val in old_centroids.items():
+            if centroids[idx][0] != old_centroids[idx][0] or centroids[idx][1] != old_centroids[idx][1]:
+                centroids_different = True
+    
+    # (4) Complete K-Means
+    # This part is formatting the items to be returned to the calling function
+    labels = []
+    for item in new_assigned_cluster_data:
+        labels.append(item[0]-1)
+    
+    centers_list = []
+    for cen in centroids.values():
+        centers_list.append(cen)
+    centers = np.array(centers_list)
     """ YOUR CODE ENDS HERE """
-
 
     end =  time()
     kmeans_runtime = end - start
     print("K-means running time: %.3fs."% kmeans_runtime)
     return labels, centers
-
 
 
 def get_bin_seeds(data, bin_size, min_bin_freq=1):

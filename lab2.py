@@ -12,8 +12,8 @@ from sklearn.utils._joblib import Parallel
 from sklearn.utils._joblib import delayed
 
 import matplotlib.pyplot as plt # Extra import added to plot graph for debug
-import copy # Extra import added. TODO: Check with TA if this import is allowed
-
+import copy # Extra import (allowed) added.
+ 
 # Part 1 
 
 def smoothing(img):

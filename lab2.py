@@ -81,7 +81,7 @@ if DEBUG:
 # (1b) In index 0 of new_assigned_cluster_data, we store the nearest Cj's cluster id (Yi) for Pi
 # Output:
 # (a) data points
-# (b) new_assigned_cluster_data: [0] = [Yi]
+# (b) new_assigned_cluster_data: index 0 contains Yi, index 1 contains corresponding color (Optional)
 def assign_clusters(data, centroids):
     new_assigned_cluster_data = []
     for Pi in data:
@@ -112,7 +112,7 @@ def assign_clusters(data, centroids):
 def update_centroids(centroids, data, new_assigned_cluster_data):
     new_centroids = {}
     for Yi in centroids.keys():
-        # Compute the mean of all the points that has been assigned cluster id Yi
+        # Compute the mean of all the points that have been assigned to cluster id Yi
         totalSumX = 0
         totalSumY = 0
         count = 0
@@ -159,7 +159,7 @@ def k_means_clustering(data, k):
     # (1) Randomly pick k points from data to be centroids
     k_points = random.sample(list(data), k)
     
-    # centroids[i] = [x, y], where i=0,1,..k are the cluster ids for centroids
+    # centroids[i] = [x, y], where i = 1,2..k are the cluster ids for centroids
     centroids = {
         i + 1: k_points[i]
         for i in range(k)
@@ -174,29 +174,30 @@ def k_means_clustering(data, k):
             original_points_data.append([0, 'k']) 
         plot_graph(data, original_points_data, centroids)
     
-    # (3) Run function assign_clusters and update_centroids until the centroids remain 
+    # (3) Run functions assign_clusters and update_centroids until the centroids remain 
     # unchanged.
     centroids_different = True
     while centroids_different:
         
-        # (3) Assign data to clusters based on centroids
+        # (3a) Assign data pts to clusters based on nearest centroids
         data, new_assigned_cluster_data = assign_clusters(data, centroids)
 
-        # (3a) Plot graph to show position of centroids and data points to assigned new clusters
+        # (3b) Plot graph to show position of centroids and data points in newly assigned clusters
         if DEBUG:
             plot_graph(data, new_assigned_cluster_data, centroids, 0.5)
 
-        # (4) Update Centroids from the new clusters formed
+        # (3c) Update Centroids from the new clusters formed
         old_centroids = copy.deepcopy(centroids)
         centroids = update_centroids(centroids, data, new_assigned_cluster_data)
         
+        # (3d) Check if centroids have changed
         centroids_different = False
         for idx, val in old_centroids.items():
             if centroids[idx][0] != old_centroids[idx][0] or centroids[idx][1] != old_centroids[idx][1]:
                 centroids_different = True
     
-    # (5) Complete K-Means
-    # This part is formatting the items to be returned to the calling function
+    # (4) Completed K-Means
+    # This part is formatting the items to be returned to the caller function
     labels = []
     for item in new_assigned_cluster_data:
         labels.append(item[0]-1)

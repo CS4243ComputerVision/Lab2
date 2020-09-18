@@ -12,7 +12,7 @@ from sklearn.utils._joblib import Parallel
 from sklearn.utils._joblib import delayed
 
 import matplotlib.pyplot as plt # Extra import added to plot graph for debug
-import copy
+import copy # Extra import added. TODO: Check with TA if this import is allowed
 
 # Part 1 
 
@@ -112,7 +112,7 @@ def assign_clusters(data, centroids):
 def update_centroids(centroids, data, new_assigned_cluster_data):
     new_centroids = {}
     for Yi in centroids.keys():
-        # compute the mean of all the points that has been assigned cluster id Yi
+        # Compute the mean of all the points that has been assigned cluster id Yi
         totalSumX = 0
         totalSumY = 0
         count = 0
@@ -195,7 +195,7 @@ def k_means_clustering(data, k):
             if centroids[idx][0] != old_centroids[idx][0] or centroids[idx][1] != old_centroids[idx][1]:
                 centroids_different = True
     
-    # (4) Complete K-Means
+    # (5) Complete K-Means
     # This part is formatting the items to be returned to the calling function
     labels = []
     for item in new_assigned_cluster_data:

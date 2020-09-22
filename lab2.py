@@ -343,7 +343,8 @@ def k_means_segmentation(img, k):
     """
 
     """ YOUR CODE STARTS HERE """
-    
+    data = img.reshape(-1,3)
+    labels, centers = k_means_clustering(data,k)
 
     """ YOUR CODE ENDS HERE """
 
@@ -366,7 +367,8 @@ def mean_shift_segmentation(img,b):
     """
 
     """ YOUR CODE STARTS HERE """
-    
+    data = img.reshape(-1,3)
+    labels, centers = mean_shift_clustering(data, bandwidth=b)
     
     """ YOUR CODE ENDS HERE """
 

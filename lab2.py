@@ -6,6 +6,8 @@ import numpy as np
 import random
 
 from time import time
+
+import sklearn
 from skimage import color
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils._joblib import Parallel
@@ -228,12 +230,21 @@ def get_bin_seeds(data, bin_size, min_bin_freq=1):
     """
 
     """ YOUR CODE STARTS HERE """
-    
-    
+    bin_seeds = []
 
+    compressed = np.round(data/bin_size)
+    unique_x = np.unique(compressed[:, 0])
+    for x in unique_x:
+        mask = compressed[:, 0] == x
+        s = compressed[mask, 1]
+        unique_y = np.unique(s)
+        for y in unique_y:
+            sums = np.sum(s == y)
+            if sums >= min_bin_freq:
+                bin_seeds.append((x, y))
 
     """ YOUR CODE ENDS HERE """
-    return bin_seeds
+    return bin_seeds * bin_size
 
 def mean_shift_single_seed(start_seed, data, nbrs, max_iter):
     """ Find mean-shift peak for given starting point.
@@ -255,10 +266,33 @@ def mean_shift_single_seed(start_seed, data, nbrs, max_iter):
     stop_thresh = 1e-3 * bandwidth  # when mean has converged
 
     """ YOUR CODE STARTS HERE """
-    
+    delta = stop_thresh
+    n_iter = 0
+    centroid = np.array(start_seed)
+    neighbors = []
+    while delta >= stop_thresh and n_iter < max_iter:
+        n_iter += 1
+
+        rng = nbrs.radius_neighbors([centroid])
+        neighbors = data[rng[1][0]]
+        if len(neighbors) == 0:
+            break
+        new_centroid = np.mean(neighbors, 0)
+        delta = np.linalg.norm(new_centroid - centroid)
+        centroid = new_centroid
+
+        # distances = np.abs(data - centroid) - bandwidth
+        # t = np.all(distances < 0, 1)
+        # neighbours = data[t]
+        # if len(neighbours) == 0:
+        #     break
+        # new_centroid = np.mean(neighbours, 0)
+        # delta = np.linalg.norm(new_centroid - centroid)
+        # centroid = new_centroid
+
     """ YOUR CODE ENDS HERE """
 
-    return peak, n_points
+    return (centroid[0], centroid[1]), len(neighbors)
 
 
 def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
@@ -307,6 +341,14 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
 
 
     """ YOUR CODE STARTS HERE """
+    points = list(center_intensity_dict.keys())[0]
+    nbrs = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(points)
+    for p in points:
+        rng = nbrs.radius_neighbors(p)
+        neighbors = points[rng[1][0]]
+        for neigh in neighbors:
+            if center_intensity_dict[p] > center_intensity_dict[neigh]:
+                center_intensity_dict[neigh] = 0
 
     
 

@@ -117,7 +117,7 @@ def update_centroids(centroids, data, new_assigned_cluster_data):
             if cluster[0] == Yi:
                 total.append(data[idx])
         
-        # Set new centroid values for each cluster by takung the mean of all points
+        # Set new centroid values for each cluster by taking the mean of all points
         # in each respective columns
         new_centroids[Yi] = np.array(total).mean(axis=0)
         
@@ -356,7 +356,7 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
 
     """ YOUR CODE STARTS HERE """
     # Actually, the number of points as seen in center_intensity_dict.values()
-    # do not necessarily add up to n_samples
+    # do not necessarily have to add up to n_samples
     points = np.array(list(center_intensity_dict.keys()))
     nbrs_c = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(points)
     

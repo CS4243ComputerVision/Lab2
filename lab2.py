@@ -85,17 +85,14 @@ if DEBUG:
 # (a) data points
 # (b) new_assigned_cluster_data: index 0 contains Yi, index 1 contains corresponding color (Optional)
 def assign_clusters(data, centroids):
+
     new_assigned_cluster_data = []
     for Pi in data:
         min_distance = float("inf")
         Yi = -1
         # Obtain Yi by comparing Pi with all possible Cj
         for Ci, Cj in centroids.items():
-            # sqrt((x1 - x2)^2 - (y1 - y2)^2)
-            current_distance = np.sqrt(
-                np.square(Pi[0] - Cj[0]) 
-                + np.square(Pi[1] - Cj[1])
-            )
+            current_distance = np.linalg.norm(Pi-Cj)
             if current_distance <= min_distance:
                 min_distance = current_distance
                 Yi = Ci
@@ -114,17 +111,16 @@ def assign_clusters(data, centroids):
 def update_centroids(centroids, data, new_assigned_cluster_data):
     new_centroids = {}
     for Yi in centroids.keys():
-        # Compute the mean of all the points that have been assigned to cluster id Yi
-        totalSumX = 0
-        totalSumY = 0
-        count = 0
+        # Compute the sum of all the points that have been assigned to cluster id Yi
+        total = []
         for idx, cluster in enumerate(new_assigned_cluster_data):
             if cluster[0] == Yi:
-                totalSumX += data[idx][0]
-                totalSumY += data[idx][1]
-                count += 1
-        # Obtain new centroid values for each cluster
-        new_centroids[Yi] = [totalSumX / count, totalSumY / count]
+                total.append(data[idx])
+        
+        # Set new centroid values for each cluster by takung the mean of all points
+        # in each respective columns
+        new_centroids[Yi] = np.array(total).mean(axis=0)
+        
     return new_centroids
 
 # HELPER FUNCTION 3
@@ -178,9 +174,8 @@ def k_means_clustering(data, k):
     
     # (3) Run functions assign_clusters and update_centroids until the centroids remain 
     # unchanged.
-    centroids_different = True
-    while centroids_different:
-        
+    delta = float("inf")
+    while delta != 0:
         # (3a) Assign data pts to clusters based on nearest centroids
         data, new_assigned_cluster_data = assign_clusters(data, centroids)
 
@@ -193,21 +188,30 @@ def k_means_clustering(data, k):
         centroids = update_centroids(centroids, data, new_assigned_cluster_data)
         
         # (3d) Check if centroids have changed
-        centroids_different = False
-        for idx, val in old_centroids.items():
-            if centroids[idx][0] != old_centroids[idx][0] or centroids[idx][1] != old_centroids[idx][1]:
-                centroids_different = True
+        old = []
+        for cen in old_centroids.values():
+            old.append(cen)
+        old_arr = np.array(old)
+        
+        new = []
+        for cen in centroids.values():
+            new.append(cen)
+        new_arr = np.array(new)
+        
+        delta = np.linalg.norm(old_arr-new_arr)
     
     # (4) Completed K-Means
     # This part is formatting the items to be returned to the caller function
     labels = []
     for item in new_assigned_cluster_data:
         labels.append(item[0]-1)
+    labels = np.array(labels)
     
     centers_list = []
     for cen in centroids.values():
         centers_list.append(cen)
     centers = np.array(centers_list)
+
     """ YOUR CODE ENDS HERE """
 
     end =  time()
@@ -231,20 +235,27 @@ def get_bin_seeds(data, bin_size, min_bin_freq=1):
 
     """ YOUR CODE STARTS HERE """
     bin_seeds = []
-
     compressed = np.round(data/bin_size)
-    unique_x = np.unique(compressed[:, 0])
-    for x in unique_x:
-        mask = compressed[:, 0] == x
-        s = compressed[mask, 1]
-        unique_y = np.unique(s)
-        for y in unique_y:
-            sums = np.sum(s == y)
-            if sums >= min_bin_freq:
-                bin_seeds.append((x, y))
-
+    
+    # Adding potential seed coordinates and their count
+    bin_seeds_dict = {}
+    for coord in list(compressed):
+        coord_f = tuple(coord)
+        
+        if not coord_f in bin_seeds_dict:
+            bin_seeds_dict[coord_f] = 1
+        else:
+            bin_seeds_dict[coord_f] += 1
+            
+    # Filter bin seeds with count bigger than threshold
+    bin_seeds = []
+    for key, value in bin_seeds_dict.items():
+        if value > min_bin_freq:
+            bin_seeds.append([bin_size * i for i in key])
+            
     """ YOUR CODE ENDS HERE """
-    return bin_seeds * bin_size
+    #  original code: return bin_seeds * bin_size
+    return bin_seeds 
 
 def mean_shift_single_seed(start_seed, data, nbrs, max_iter):
     """ Find mean-shift peak for given starting point.
@@ -272,31 +283,32 @@ def mean_shift_single_seed(start_seed, data, nbrs, max_iter):
     neighbors = []
     while delta >= stop_thresh and n_iter < max_iter:
         n_iter += 1
-
         rng = nbrs.radius_neighbors([centroid])
         neighbors = data[rng[1][0]]
         if len(neighbors) == 0:
             break
         new_centroid = np.mean(neighbors, 0)
+        # np.linalg.norm uses Frobenius norm
+        # sometimes also called the Euclidean norm is the matrix norm of 
+        # a matrix defined as the square root of the sum of the absolute squares of its elements
         delta = np.linalg.norm(new_centroid - centroid)
         centroid = new_centroid
 
-        # distances = np.abs(data - centroid) - bandwidth
-        # t = np.all(distances < 0, 1)
-        # neighbours = data[t]
-        # if len(neighbours) == 0:
-        #     break
-        # new_centroid = np.mean(neighbours, 0)
-        # delta = np.linalg.norm(new_centroid - centroid)
-        # centroid = new_centroid
-
     """ YOUR CODE ENDS HERE """
+    return tuple(centroid), len(neighbors)
 
-    return (centroid[0], centroid[1]), len(neighbors)
-
+# Note:
+# nbrs.radius_neighbors
+# Finds the neighbors within a given radius of a point or points.
+# Return the indices and distances of each point from the dataset lying
+# in a ball with size radius around the points of the query array. 
+# Points lying on the boundary are included in the results.
+# 
+# rng[0][0]: Contains the distances to all points which are closer than radius
+# rng[1][0]: Contains their indices
 
 def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
-    """pipline of mean shift clustering.
+    """pipeline of mean shift clustering.
 
     Args:
         data (np.ndarray)           : Input data with shape (n_samples, n_features)
@@ -314,6 +326,7 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
     start = time()
     n_jobs = None
     seeds = get_bin_seeds(data, bandwidth, min_bin_freq)
+
     n_samples, n_features = data.shape
     center_intensity_dict = {}
 
@@ -321,11 +334,12 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
     # parallel calls to _mean_shift_single_seed so there is no need for
     # for further parallelism.
     nbrs = NearestNeighbors(radius=bandwidth, n_jobs=1).fit(data)
+
     # execute iterations on all seeds in parallel
     all_res = Parallel(n_jobs=n_jobs)(
         delayed(mean_shift_single_seed)
         (seed, data, nbrs, max_iter) for seed in seeds)
-
+    
     # copy results in a dictionary
     for i in range(len(seeds)):
         if all_res[i] is not None:
@@ -341,23 +355,39 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
 
 
     """ YOUR CODE STARTS HERE """
-    points = list(center_intensity_dict.keys())[0]
-    nbrs = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(points)
-    for p in points:
-        rng = nbrs.radius_neighbors(p)
-        neighbors = points[rng[1][0]]
-        for neigh in neighbors:
-            if center_intensity_dict[p] > center_intensity_dict[neigh]:
-                center_intensity_dict[neigh] = 0
-
+    # Actually, the number of points as seen in center_intensity_dict.values()
+    # do not necessarily add up to n_samples
+    points = np.array(list(center_intensity_dict.keys()))
+    nbrs_c = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(points)
     
-
+    for p in points:
+        rng = nbrs_c.radius_neighbors([p])
+        neighbors_coord = points[rng[1][0]]
+        for neigh in neighbors_coord:
+            # p is of the form [x,y] hence need to convert to (x,y) tuple to access dictionary
+            if center_intensity_dict[tuple(p)] > center_intensity_dict[tuple(neigh)]:
+                center_intensity_dict[tuple(neigh)] = 0
+       
+    centers = [] # Only add peak coords with > 0 points
+    for center_points, count in center_intensity_dict.items():
+        if count != 0:
+            centers.append(center_points)
+    
+    # Assign points to clusters with the help of kneighbors
+    labels = [0] * n_samples
+    nbrs = NearestNeighbors(n_neighbors=1).fit(centers)
+    for index, pointcoord in enumerate(data):
+        rng = nbrs.kneighbors([pointcoord])
+        neighbors_idx = rng[1][0]
+        
+        for neigh in neighbors_idx:
+            labels[index] = neigh
 
     """ YOUR CODE ENDS HERE """
     end =  time()
     kmeans_runtime = end - start
     print("mean shift running time: %.3fs."% kmeans_runtime)
-    return labels, centers
+    return np.array(labels), np.array(centers)
 
 
 
@@ -388,7 +418,9 @@ def k_means_segmentation(img, k):
     if img.ndim == 3:
         data = img.reshape(-1,3)
     else:
-        data = img.flatten()
+        num_pixels = img.flatten()
+        data = img.reshape(len(num_pixels), 1)
+       
     labels, centers = k_means_clustering(data,k)
 
     """ YOUR CODE ENDS HERE """
@@ -412,10 +444,16 @@ def mean_shift_segmentation(img,b):
     """
 
     """ YOUR CODE STARTS HERE """
+    print("HERE")
+    print(img.ndim)
     if img.ndim == 3:
         data = img.reshape(-1,3)
     else:
-        data = img.flatten()
+        num_pixels = img.flatten()
+        data = img.reshape(len(num_pixels), 1)
+    
+    print("data dim")
+    print(data.shape)
     labels, centers = mean_shift_clustering(data, bandwidth=b)
     
     """ YOUR CODE ENDS HERE """

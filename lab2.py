@@ -444,16 +444,12 @@ def mean_shift_segmentation(img,b):
     """
 
     """ YOUR CODE STARTS HERE """
-    print("HERE")
-    print(img.ndim)
     if img.ndim == 3:
         data = img.reshape(-1,3)
     else:
         num_pixels = img.flatten()
         data = img.reshape(len(num_pixels), 1)
     
-    print("data dim")
-    print(data.shape)
     labels, centers = mean_shift_clustering(data, bandwidth=b)
     
     """ YOUR CODE ENDS HERE """

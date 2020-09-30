@@ -59,16 +59,6 @@ def RGBtoLab(img):
 
 # Part 2    
 
-# To view how the cluster assignment changes, change DEBUG to True
-DEBUG = False 
-
-# Define colmap for plotting of graph for debugging purposes of 
-# visualising how the point clusters changes
-# Only works for K=3
-
-if DEBUG:
-    colmap = {1: 'r', 2: 'g', 3: 'y'}
-
 # HELPER FUNCTION 1
 # The notations Pi, Cj, Yi follow that of lab2.pdf
 # Pi: Individual point
@@ -78,31 +68,21 @@ if DEBUG:
 # (a) data points
 # (b) centroids: dictionary where each Yi (key) is mapped to it's Cj (value)
 # Idea: 
-# (1) Iterate through every single point Pi in data
-# (1a) Compute the distance of Pi wrt all the centroid points Cj
-# (1b) In index 0 of new_assigned_cluster_data, we store the nearest Cj's cluster id (Yi) for Pi
+# (1) Iterate through every single centroid
+# (1a) Using np.linalg.norm, compute the distance of Cj to Pi
+# (1b) Using np.argmin, keep only the index of min distance
 # Output:
 # (a) data points
-# (b) new_assigned_cluster_data: index 0 contains Yi, index 1 contains corresponding color (Optional)
+# (b) new_assigned_cluster_data: contains Yi
 def assign_clusters(data, centroids):
+    
+    distance_to_all_Cj = []
+    for Cj in centroids.values():
+        distance_arr = np.linalg.norm(data-Cj, axis = 1)
+        distance_to_all_Cj.append(distance_arr)
+    
+    new_assigned_cluster_data = np.argmin(distance_to_all_Cj, axis = 0)
 
-    new_assigned_cluster_data = []
-    for Pi in data:
-        min_distance = float("inf")
-        Yi = -1
-        # Obtain Yi by comparing Pi with all possible Cj
-        for Ci, Cj in centroids.items():
-            current_distance = np.linalg.norm(Pi-Cj)
-            if current_distance <= min_distance:
-                min_distance = current_distance
-                Yi = Ci
-        # Append Yi: Cluster id
-        # Append Color: For debug purposes
-        if DEBUG:
-            new_assigned_cluster_data.append([Yi, colmap[Yi]])
-        else:
-            new_assigned_cluster_data.append([Yi])
-           
     return (data, new_assigned_cluster_data)
 
 # HELPER FUNCTION 2
@@ -114,7 +94,7 @@ def update_centroids(centroids, data, new_assigned_cluster_data):
         # Compute the sum of all the points that have been assigned to cluster id Yi
         total = []
         for idx, cluster in enumerate(new_assigned_cluster_data):
-            if cluster[0] == Yi:
+            if cluster == Yi:
                 total.append(data[idx])
         
         # Set new centroid values for each cluster by taking the mean of all points
@@ -122,19 +102,6 @@ def update_centroids(centroids, data, new_assigned_cluster_data):
         new_centroids[Yi] = np.array(total).mean(axis=0)
         
     return new_centroids
-
-# HELPER FUNCTION 3
-# plot_graph: self defined function to print graph for debugging purposes
-def plot_graph(data, new_assigned_cluster_data, centroids, alpha = 1):
-    
-    fig = plt.figure()
-    
-    for i in range(len(data)):
-        plt.scatter(data[i][0], data[i][1], color = new_assigned_cluster_data[i][1], alpha = alpha, edgecolor = 'k')
-    for i in centroids.keys():
-        plt.scatter(*centroids[i], color = colmap[i], edgecolor = 'w', marker = 's')
-    
-    plt.show()
     
 def k_means_clustering(data, k):
     """ Estimate clustering centers using k-means algorithm.
@@ -157,37 +124,25 @@ def k_means_clustering(data, k):
     # (1) Randomly pick k points from data to be centroids
     k_points = random.sample(list(data), k)
     
-    # centroids[i] = [x, y], where i = 1,2..k are the cluster ids for centroids
+    # centroids[i] = [x, y], where i = 0,1..k are the cluster ids for centroids
     centroids = {
-        i + 1: k_points[i]
+        i : k_points[i]
         for i in range(k)
     }
-   
-    # (2) Plot graph to show position of initial centroids and data points
-    if DEBUG:
-        original_points_data = []
-        for i in range(len(data)):
-            # Set black color for original pts
-            # Note that 0 is just a dummy value
-            original_points_data.append([0, 'k']) 
-        plot_graph(data, original_points_data, centroids)
+  
     
-    # (3) Run functions assign_clusters and update_centroids until the centroids remain 
+    # (2) Run functions assign_clusters and update_centroids until the centroids remain 
     # unchanged.
     delta = float("inf")
     while delta != 0:
-        # (3a) Assign data pts to clusters based on nearest centroids
+        # (2a Assign data pts to clusters based on nearest centroids
         data, new_assigned_cluster_data = assign_clusters(data, centroids)
 
-        # (3b) Plot graph to show position of centroids and data points in newly assigned clusters
-        if DEBUG:
-            plot_graph(data, new_assigned_cluster_data, centroids, 0.5)
-
-        # (3c) Update Centroids from the new clusters formed
+        # (2b) Update Centroids from the new clusters formed
         old_centroids = copy.deepcopy(centroids)
         centroids = update_centroids(centroids, data, new_assigned_cluster_data)
         
-        # (3d) Check if centroids have changed
+        # (2c) Check if centroids have changed
         old = []
         for cen in old_centroids.values():
             old.append(cen)
@@ -200,11 +155,11 @@ def k_means_clustering(data, k):
         
         delta = np.linalg.norm(old_arr-new_arr)
     
-    # (4) Completed K-Means
+    # (3) Completed K-Means
     # This part is formatting the items to be returned to the caller function
     labels = []
     for item in new_assigned_cluster_data:
-        labels.append(item[0]-1)
+        labels.append(item)
     labels = np.array(labels)
     
     centers_list = []
@@ -238,20 +193,13 @@ def get_bin_seeds(data, bin_size, min_bin_freq=1):
     compressed = np.round(data/bin_size)
     
     # Adding potential seed coordinates and their count
-    bin_seeds_dict = {}
-    for coord in list(compressed):
-        coord_f = tuple(coord)
-        
-        if not coord_f in bin_seeds_dict:
-            bin_seeds_dict[coord_f] = 1
-        else:
-            bin_seeds_dict[coord_f] += 1
-            
+    seeds, count = np.unique(compressed, return_counts = True, axis = 0)
+    
     # Filter bin seeds with count bigger than threshold
     bin_seeds = []
-    for key, value in bin_seeds_dict.items():
-        if value > min_bin_freq:
-            bin_seeds.append([bin_size * i for i in key])
+    for index, c in enumerate(count):
+        if c > min_bin_freq:
+            bin_seeds.append([bin_size * i for i in seeds[index]] )
             
     """ YOUR CODE ENDS HERE """
     #  original code: return bin_seeds * bin_size
@@ -355,45 +303,30 @@ def mean_shift_clustering(data, bandwidth=0.7, min_bin_freq=5, max_iter=300):
 
 
     """ YOUR CODE STARTS HERE """
-    # Actually, the number of points as seen in center_intensity_dict.values()
-    # do not necessarily have to add up to n_samples
-    points = np.array(list(center_intensity_dict.keys()))
-    nbrs_c = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(points)
+    # Fit with centroid points
+    centroids = np.array(list(center_intensity_dict.keys()))
+    nbrs_c = sklearn.neighbors.NearestNeighbors(radius=bandwidth).fit(centroids)
     
-    for p in points:
+    # Merge neighbouring peaks
+    copy_center_intensity_dict =  copy.deepcopy(center_intensity_dict)
+    for p in centroids:
         rng = nbrs_c.radius_neighbors([p])
-        neighbors_coord = points[rng[1][0]]
+        neighbors_coord = centroids[rng[1][0]]
         for neigh in neighbors_coord:
             # p is of the form [x,y] hence need to convert to (x,y) tuple to access dictionary
-            if center_intensity_dict[tuple(p)] > center_intensity_dict[tuple(neigh)]:
-                center_intensity_dict[tuple(neigh)] = 0
-       
-    centers = [] # Only add peak coords with > 0 points
-    for center_points, count in center_intensity_dict.items():
-        if count != 0:
-            centers.append(center_points)
+            if center_intensity_dict[tuple(p)] > center_intensity_dict[tuple(neigh)] and tuple(neigh) in copy_center_intensity_dict.keys():
+                # Delete peak with smaller counts
+                del copy_center_intensity_dict[tuple(neigh)]
     
-    # Assign points to clusters with the help of kneighbors
-    labels = [0] * n_samples
-    nbrs = NearestNeighbors(n_neighbors=1).fit(centers)
-    for index, pointcoord in enumerate(data):
-        rng = nbrs.kneighbors([pointcoord])
-        neighbors_idx = rng[1][0]
-        
-        for neigh in neighbors_idx:
-            labels[index] = neigh
+    # Assign points to clusters with the help of kneighbors       
+    nbrs = NearestNeighbors(n_neighbors=1).fit(list(copy_center_intensity_dict.keys()))
+    neigh_dist, labels = nbrs.kneighbors(data)
 
     """ YOUR CODE ENDS HERE """
     end =  time()
     kmeans_runtime = end - start
     print("mean shift running time: %.3fs."% kmeans_runtime)
-    return np.array(labels), np.array(centers)
-
-
-
-
-
-
+    return np.array(labels), np.array(list(copy_center_intensity_dict.keys()))
 
 
 
